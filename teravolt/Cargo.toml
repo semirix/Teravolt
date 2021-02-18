@@ -2,9 +2,12 @@
 name = "teravolt"
 version = "0.1.0"
 authors = ["Semirix <semirix@protonmail.com>"]
+license = "Apache-2.0"
+description = "An executor for handling streaming data from multiple sources and enabling seamless communication between them."
+readme = "../README.md"
+repository = "https://github.com/semirix/Teravolt"
+homepage = "https://github.com/semirix/Teravolt"
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 teravolt-codegen = { version = "0.1", path = "../teravolt-codegen" }
