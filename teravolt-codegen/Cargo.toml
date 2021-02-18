@@ -1,0 +1,12 @@
+[package]
+name = "teravolt-codegen"
+version = "0.1.0"
+authors = ["Semirix <semirix@protonmail.com>"]
+edition = "2018"
+
+[dependencies]
+syn = "1.0"
+quote = "1.0"
+
+[lib]
+proc-macro = true
