@@ -1,5 +1,9 @@
 [package]
 name = "teravolt-codegen"
+description = "Rust codegen for teravolt"
+license = "Apache-2.0"
+keywords = ["codegen", "teravolt"]
+categories = ["network-programming", "development-tools::build-utils"]
 version = "0.1.0"
 authors = ["Semirix <semirix@protonmail.com>"]
 edition = "2018"
