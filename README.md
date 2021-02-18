@@ -2,11 +2,15 @@
 Teravolt is an executor for handling streaming data from multiple sources and
 enabling seamless communication between them.
 
+> **Warning**: This is far from being complete and lacks many features at the
+> moment. Use at your own risk!
+
 ## Goals
 - Speed.
 - Ergonomics.
 - Abstract the general nastiness of dealing with multi-threaded async futures
   with inter-process communication.
+- Reliability
 
 ## Features
 - [x] Multiple tasks communicating with each other.
