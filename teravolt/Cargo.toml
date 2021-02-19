@@ -10,7 +10,7 @@ homepage = "https://github.com/semirix/Teravolt"
 edition = "2018"
 
 [dependencies]
-teravolt-codegen = { version = "0.1", path = "../teravolt-codegen", package = "teravolt-codegen" }
+teravolt-codegen = { version = "0.2", path = "../teravolt-codegen", package = "teravolt-codegen" }
 thiserror = "1.0"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
