@@ -1,6 +1,6 @@
 [package]
 name = "teravolt"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Semirix <semirix@protonmail.com>"]
 license = "Apache-2.0"
 description = "An executor for handling streaming data from multiple sources and enabling seamless communication between them."
@@ -14,4 +14,6 @@ teravolt-codegen = { version = "0.1", path = "../teravolt-codegen", package = "t
 thiserror = "1.0"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
+async-trait = "0.1"
 dashmap = { version = "4", features = ["rayon"] }
+dyn-clone = "1"

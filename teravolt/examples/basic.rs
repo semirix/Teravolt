@@ -1,47 +1,58 @@
+use async_trait::async_trait;
 use teravolt::prelude::*;
-use tokio::runtime::{Builder, Handle};
+use tokio::runtime::Builder;
 use tokio::time::{self, Duration};
 
 #[derive(Clone, TeravoltPacket)]
 struct Type;
 
+#[derive(Clone)]
 struct SendType;
 
-impl Connection for SendType {
-    fn name(&self) -> &'static str {
-        "SendType"
+#[async_trait]
+impl Connection<()> for SendType {
+    fn config(&self) -> ConnectionConfig {
+        ConnectionConfig {
+            name: "SendType",
+            behaviour: ConnectionBehaviour::Producer,
+        }
     }
-    fn task(&mut self, handle: &Handle, bus: Sender) -> TaskHandle {
-        let handle = handle.spawn(async move {
-            let mut interval = time::interval(Duration::from_millis(1000));
-            loop {
-                interval.tick().await;
-                if let Err(_) = bus.send(Type.as_packet()) {
-                    break;
-                }
+    fn policy(&self, _: TaskResult<()>) -> RestartPolicy {
+        RestartPolicy::Restart
+    }
+    async fn task(&self, sender: &Sender, _: &mut Receiver) -> TaskResult<()> {
+        let mut interval = time::interval(Duration::from_millis(1000));
+        loop {
+            interval.tick().await;
+            if let Err(_) = sender.send(Type.as_packet()) {
+                break;
             }
-        });
-
-        (handle, None)
+        }
+        Ok(())
     }
 }
 
+#[derive(Clone)]
 struct ReceiveType;
 
-impl Connection for ReceiveType {
-    fn name(&self) -> &'static str {
-        "ReceiveType"
+#[async_trait]
+impl Connection<()> for ReceiveType {
+    fn config(&self) -> ConnectionConfig {
+        ConnectionConfig {
+            name: "ReceiveType",
+            behaviour: ConnectionBehaviour::Consumer,
+        }
     }
-    fn task(&mut self, handle: &Handle, _: Sender) -> TaskHandle {
-        let (sender, mut receiver) = send_receive();
-        let handle = handle.spawn(async move {
-            while let Some(message) = receiver.recv().await {
-                if message.id() == Type::id() {
-                    println!("Received a Type object");
-                }
+    fn policy(&self, _: TaskResult<()>) -> RestartPolicy {
+        RestartPolicy::Restart
+    }
+    async fn task(&self, _: &Sender, receiver: &mut Receiver) -> TaskResult<()> {
+        while let Some(message) = receiver.recv().await {
+            if message.id() == Type::id() {
+                println!("Received a Type object");
             }
-        });
-        (handle, Some(sender))
+        }
+        Ok(())
     }
 }
 

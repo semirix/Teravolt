@@ -1,11 +1,14 @@
+//! fwef
+pub mod config;
 pub mod error;
 pub mod executor;
 pub mod packet;
 pub mod types;
 
 pub mod prelude {
+    pub use crate::config::*;
     pub use crate::error::TeravoltError;
-    pub use crate::executor::{Connection, Teravolt};
+    pub use crate::executor::{Connection, RestartPolicy, Teravolt};
     pub use crate::packet::{Packet, TeravoltPacket};
     pub use crate::send_receive;
     pub use crate::types::*;
