@@ -14,11 +14,11 @@ enabling seamless communication between them.
 
 ## Features
 - [x] Multiple tasks communicating with each other.
-- [ ] Custom task restart policies.
+- [x] Custom task restart policies.
 - [ ] Subscribe to messages.
 - [ ] Distribute task workloads over multiple threads.
 - [ ] Procedural macros to create new tasks.
-- [ ] Handling of errors in tasks cleanly.
+- [x] Handling of errors in tasks cleanly.
 
 ## License
 ```
