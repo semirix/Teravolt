@@ -1,6 +1,6 @@
+use crate::config::*;
 use crate::types::*;
 use crate::Result;
-use crate::{config::*, send_receive};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use dyn_clone::DynClone;
@@ -8,17 +8,19 @@ use std::borrow::Borrow;
 use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 
-/// An enum returned by `Connection::policy()` in response to a task error that
+/// An enum returned by [`Connection::policy`] in response to a task error that
 /// determines if the task needs to shutdown.
 pub enum RestartPolicy {
-    /// Shutdown the task
-    Shutdown,
     /// Restart the task
     Restart,
+    /// Shutdown the task
+    Shutdown,
 }
 
 /// The connection trait for Teravolt. You will implement this directly on a
-/// blank cloneable object.
+/// blank cloneable object. When implementing, it is ideal to use
+/// `#[async_trait]` to avoid having to manage the future for
+/// [`Connection::task`] yourself.
 #[async_trait]
 pub trait Connection<E>: DynClone
 where
@@ -28,7 +30,7 @@ where
     fn config(&self) -> ConnectionConfig;
     /// A restart policy based upon the result of the task.
     fn policy(&self, result: TaskResult<E>) -> RestartPolicy;
-    /// An asynchronous task to run.
+    /// An asynchronous task for the  connection to run.
     async fn task(&self, sender: &Sender, receiver: &mut Receiver) -> TaskResult<E>;
 }
 
@@ -67,7 +69,7 @@ where
 }
 
 /// The Teravolt executor.
-pub struct Teravolt<'a, E>
+pub struct Executor<'a, E>
 where
     E: ErrorTrait,
 {
@@ -79,7 +81,7 @@ where
     senders: DashMap<&'static str, Sender>,
 }
 
-impl<'a, E> Teravolt<'a, E>
+impl<'a, E> Executor<'a, E>
 where
     E: ErrorTrait,
 {
@@ -113,7 +115,7 @@ where
             let connection = data.value().duplicate();
             let config = connection.get_raw().config();
             // Spawn the task
-            let (sender, mut receiver) = send_receive();
+            let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
             let bus = self.primary_send.clone();
 
             let thread = handle.spawn(async move {

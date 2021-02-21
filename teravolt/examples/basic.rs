@@ -3,7 +3,7 @@ use teravolt::prelude::*;
 use tokio::runtime::Builder;
 use tokio::time::{self, Duration};
 
-#[derive(Clone, TeravoltPacket)]
+#[derive(Clone, TeravoltMessage)]
 struct Type;
 
 #[derive(Clone)]
@@ -24,7 +24,7 @@ impl Connection<()> for SendType {
         let mut interval = time::interval(Duration::from_millis(1000));
         loop {
             interval.tick().await;
-            if let Err(_) = sender.send(Type.as_packet()) {
+            if let Err(_) = sender.send(Type.as_message()) {
                 break;
             }
         }
@@ -64,7 +64,7 @@ async fn main() {
         .enable_time()
         .build()
         .unwrap();
-    let mut teravolt = Teravolt::new(&runtime).unwrap();
+    let mut teravolt = Executor::new(&runtime).unwrap();
     teravolt.add_connection(SendType);
     teravolt.add_connection(ReceiveType);
     teravolt.start().await;
