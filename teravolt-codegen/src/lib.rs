@@ -8,17 +8,13 @@ pub fn message(input: TokenStream) -> TokenStream {
     let ident = input.ident.clone();
 
     let expanded = quote! {
-        use crate::Message;
-        use std::any::TypeId;
-        use std::convert::{TryFrom, Into};
-
         impl TeravoltMessage for #ident {
             fn as_message(&self) -> Message {
-                Message::new::<#ident>(self.clone())
+                crate::Message::new::<#ident>(self.clone())
             }
 
-            fn id() -> TypeId {
-                TypeId::of::<#ident>()
+            fn id() -> std::any::TypeId {
+                std::any::TypeId::of::<#ident>()
             }
         }
     };
