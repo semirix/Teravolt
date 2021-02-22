@@ -1,4 +1,6 @@
 # Teravolt - Multi-stream executor
+[![](https://docs.rs/teravolt/badge.svg)](https://docs.rs/teravolt/)
+
 Teravolt is an executor for handling streaming data from multiple sources and
 enabling seamless communication between them.
 
