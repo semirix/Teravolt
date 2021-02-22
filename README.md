@@ -17,10 +17,11 @@ enabling seamless communication between them.
 ## Features
 - [x] Multiple tasks communicating with each other.
 - [x] Custom task restart policies.
+- [x] Handling of errors in tasks cleanly.
 - [ ] Subscribe to messages.
 - [ ] Distribute task workloads over multiple threads.
 - [ ] Procedural macros to create new tasks.
-- [x] Handling of errors in tasks cleanly.
+- [ ] Support mutable internal state for connections.
 
 ## License
 ```
