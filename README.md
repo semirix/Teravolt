@@ -10,8 +10,7 @@ enabling seamless communication between them.
 ## Goals
 - Speed.
 - Ergonomics.
-- Abstract the general nastiness of dealing with multi-threaded async futures
-  with inter-process communication.
+- Abstract away threading, async, and inter-process communication.
 - Reliability.
 
 ## Features
@@ -22,6 +21,7 @@ enabling seamless communication between them.
 - [ ] Distribute task workloads over multiple threads.
 - [ ] Procedural macros to create new tasks.
 - [ ] Support mutable internal state for connections.
+- [ ] Connection dependencies
 
 ## License
 ```

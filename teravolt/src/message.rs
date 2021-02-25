@@ -18,9 +18,9 @@ impl Message {
     /// Creates a new Message. Avoid calling this method directly, this is for
     /// use by the `#[derive(TeravoltMessage)]` derive macro.
     pub fn new<T: Any + Clone + Send + Sync>(data: T) -> Self {
-        let data = data.clone();
         Message(Arc::new(Box::new(data)), TypeId::of::<T>())
     }
+
     /// Clone the data within the message and consume the lifetime of the
     /// message. Don't use this unless you know what the type beforehand is.
     pub fn consume<T: Any + Clone + Send + Sync>(self) -> Option<T> {

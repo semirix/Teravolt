@@ -18,9 +18,8 @@ pub enum RestartPolicy {
 }
 
 /// The connection trait for Teravolt. You will implement this directly on a
-/// blank cloneable object. When implementing, it is ideal to use
-/// `#[async_trait]` to avoid having to manage the future for
-/// [`Connection::task`] yourself.
+/// blank cloneable object. When implementing, make sure you use the
+/// `#[teravolt::async_trait]` macro.
 #[async_trait]
 pub trait Connection<E>: DynClone
 where

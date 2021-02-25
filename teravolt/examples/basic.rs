@@ -35,7 +35,7 @@ impl Connection<()> for SendType {
 #[derive(Clone)]
 struct ReceiveType;
 
-#[async_trait]
+#[teravolt::async_trait]
 impl Connection<()> for ReceiveType {
     fn config(&self) -> ConnectionConfig {
         ConnectionConfig {

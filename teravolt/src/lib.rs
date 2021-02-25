@@ -23,7 +23,7 @@
 //! this:
 //!
 //! ```rust
-//! #[async_trait]
+//! #[teravolt::async_trait]
 //! impl Connection<Error> for SendMessage {
 //!     fn config(&self) -> ConnectionConfig {
 //!         // ...
@@ -65,7 +65,7 @@
 //!
 //! ```rust
 //! fn policy(&self, result: TaskResult<Error>) -> RestartPolicy {
-//!     if let Some(error) = result {
+//!     if let Err(error) = result {
 //!         RestartPolicy::Restart
 //!     } else {
 //!         RestartPolicy::Shutdown
@@ -149,3 +149,6 @@ pub use crate::message::Message;
 
 /// A `Result` type with a `TeravoltError` as the `Err` type.
 pub type Result<T> = std::result::Result<T, error::TeravoltError>;
+
+/// A re-export of [`async-trait`] for convenience.
+pub use async_trait::async_trait;

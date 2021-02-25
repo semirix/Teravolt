@@ -1,6 +1,6 @@
 [package]
 name = "teravolt"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Semirix <semirix@protonmail.com>"]
 license = "Apache-2.0"
 description = "An executor for handling streaming data from multiple sources and enabling seamless communication between them."
@@ -10,10 +10,11 @@ homepage = "https://github.com/semirix/Teravolt"
 edition = "2018"
 
 [dependencies]
-teravolt-codegen = { version = "0.3.1", path = "../teravolt-codegen", package = "teravolt-codegen" }
+teravolt-codegen = { version = "0.3.2", path = "../teravolt-codegen", package = "teravolt-codegen" }
 thiserror = "1.0"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 async-trait = "0.1"
 dashmap = { version = "4", features = ["rayon"] }
 dyn-clone = "1"
+futures = "0.3"
