@@ -2,7 +2,6 @@ use crate::config::*;
 use crate::types::*;
 use crate::Result;
 use async_trait::async_trait;
-use dashmap::DashMap;
 use dyn_clone::DynClone;
 use std::borrow::Borrow;
 use tokio::runtime::Runtime;
@@ -73,11 +72,11 @@ where
     E: ErrorTrait,
 {
     runtime: &'a Runtime,
-    primary_send: Sender,
-    primary_receive: Receiver,
-    connections: DashMap<&'static str, ConnectionContainer<E>>,
-    tasks: DashMap<&'static str, JoinHandle<()>>,
-    senders: DashMap<&'static str, Sender>,
+    primary_sender: Sender,
+    primary_receiver: Receiver,
+    connections: AsyncMap<&'static str, ConnectionContainer<E>>,
+    tasks: AsyncMap<&'static str, JoinHandle<()>>,
+    senders: AsyncMap<&'static str, Sender>,
 }
 
 impl<'a, E> Executor<'a, E>
@@ -86,21 +85,27 @@ where
 {
     /// Create a new instance of the Teravolt executor.
     pub fn new(runtime: &'a Runtime) -> Result<Self> {
-        let (send, receive) = tokio::sync::mpsc::unbounded_channel();
+        let (primary_sender, primary_receiver) = tokio::sync::mpsc::unbounded_channel();
+
         Ok(Self {
             runtime,
-            primary_send: send,
-            primary_receive: receive,
-            connections: DashMap::new(),
-            tasks: DashMap::new(),
-            senders: DashMap::new(),
+            primary_sender,
+            primary_receiver,
+            connections: async_map(),
+            tasks: async_map(),
+            senders: async_map(),
         })
     }
 
     /// Add a new connection to the the Teravolt executor.
-    pub fn add_connection<T: Connection<E> + Send + Sync + 'static>(&mut self, connection: T) {
+    pub async fn add_connection<T: Connection<E> + Send + Sync + 'static>(
+        &mut self,
+        connection: T,
+    ) {
         let config = connection.config();
         self.connections
+            .write()
+            .await
             .insert(config.name, ConnectionContainer::new(connection));
     }
 
@@ -108,14 +113,14 @@ where
     pub async fn start(&mut self) {
         let handle = self.runtime.handle();
 
-        for data in self.connections.iter() {
+        for (_, data) in self.connections.read().await.iter() {
             // Cloning the connection is fine, it's just a vtable. We need to
             // clone it so the thread can take ownership.
-            let connection = data.value().duplicate();
+            let connection = data.duplicate();
             let config = connection.get_raw().config();
             // Spawn the task
             let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
-            let bus = self.primary_send.clone();
+            let bus = self.primary_sender.clone();
 
             let thread = handle.spawn(async move {
                 let connection = connection.get_raw();
@@ -129,18 +134,18 @@ where
                 }
             });
 
-            self.tasks.insert(config.name, thread);
+            self.tasks.write().await.insert(config.name, thread);
 
             match config.behaviour {
                 ConnectionBehaviour::Consumer | ConnectionBehaviour::Transformer => {
-                    self.senders.insert(config.name, sender);
+                    self.senders.write().await.insert(config.name, sender);
                 }
                 _ => (),
             }
         }
 
-        while let Some(message) = self.primary_receive.recv().await {
-            for sender in self.senders.iter() {
+        while let Some(message) = self.primary_receiver.recv().await {
+            for (_, sender) in self.senders.read().await.iter() {
                 match sender.send(message.clone()) {
                     // TODO: Handle this better
                     Err(error) => println!("Error: {error}", error = error),

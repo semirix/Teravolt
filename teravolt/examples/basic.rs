@@ -64,8 +64,9 @@ async fn main() {
         .enable_time()
         .build()
         .unwrap();
+
     let mut teravolt = Executor::new(&runtime).unwrap();
-    teravolt.add_connection(SendType);
-    teravolt.add_connection(ReceiveType);
+    teravolt.add_connection(SendType).await;
+    teravolt.add_connection(ReceiveType).await;
     teravolt.start().await;
 }
