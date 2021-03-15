@@ -2,9 +2,6 @@ use teravolt::prelude::*;
 use tokio::runtime::Builder;
 use tokio::time::{self, Duration};
 
-#[derive(Debug, Clone)]
-struct Type;
-
 #[derive(Clone)]
 struct SendType;
 
@@ -16,16 +13,16 @@ impl Connection<()> for SendType {
     fn policy(&self, _: TaskResult<()>) -> RestartPolicy {
         RestartPolicy::Restart
     }
-    async fn task(&self, queue: MessageQueue, _: Storage) -> TaskResult<()> {
-        let (sender, _) = queue.acquire_handle::<Type>().await;
-        let mut interval = time::interval(Duration::from_millis(1000));
+    async fn task(&self, _: MessageQueue, storage: Storage) -> TaskResult<()> {
+        let mut interval = time::interval(Duration::from_millis(500));
         loop {
             interval.tick().await;
-            if let Err(_) = sender.send(Type) {
-                break;
-            }
+            storage
+                .write::<u16>(|data| {
+                    *data += 1;
+                })
+                .await;
         }
-        Ok(())
     }
 }
 
@@ -42,12 +39,16 @@ impl Connection<()> for ReceiveType {
     fn policy(&self, _: TaskResult<()>) -> RestartPolicy {
         RestartPolicy::Restart
     }
-    async fn task(&self, queue: MessageQueue, _: Storage) -> TaskResult<()> {
-        let (_, mut receiver) = queue.acquire_handle::<Type>().await;
-        while let Ok(message) = receiver.recv().await {
-            println!("Received a {:?} object", message);
+    async fn task(&self, _: MessageQueue, storage: Storage) -> TaskResult<()> {
+        let mut interval = time::interval(Duration::from_millis(1000));
+        loop {
+            interval.tick().await;
+            storage
+                .read::<u16>(|data| {
+                    println!("Count: {}", data);
+                })
+                .await;
         }
-        Ok(())
     }
 }
 
@@ -60,7 +61,7 @@ async fn main() {
         .build()
         .unwrap();
 
-    let mut teravolt = Executor::new(&runtime, 32).unwrap();
+    let mut teravolt = Executor::new(&runtime, 0).unwrap();
     teravolt.add_connection(SendType).await;
     teravolt.add_connection(ReceiveType).await;
     teravolt.start().await;

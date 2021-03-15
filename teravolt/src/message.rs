@@ -1,42 +1,52 @@
+use hashbrown::HashMap;
 use std::any::{Any, TypeId};
 use std::sync::Arc;
+use tokio::sync::broadcast::*;
+use tokio::sync::Mutex;
 
-pub use teravolt_codegen::TeravoltMessage;
-
-/// A trait for a Teravolt Message. This trait should be implemented using the
-/// `#[derive(Teravolt)]` macro.
-pub trait TeravoltMessage {
-    fn as_message(&self) -> Message;
-    fn id() -> TypeId;
+#[derive(Clone)]
+/// A message queue structure
+pub struct MessageQueue {
+    handles: Arc<Mutex<HashMap<TypeId, Box<dyn Any + Send + Sync + 'static>>>>,
+    capacity: usize,
 }
 
-#[derive(Debug, Clone)]
-/// A universal message type for transmitting data inside Teravolt.
-pub struct Message(Arc<Box<dyn Any + Send + Sync>>, TypeId);
-
-impl Message {
-    /// Creates a new Message. Avoid calling this method directly, this is for
-    /// use by the `#[derive(TeravoltMessage)]` derive macro.
-    pub fn new<T: Any + Clone + Send + Sync>(data: T) -> Self {
-        Message(Arc::new(Box::new(data)), TypeId::of::<T>())
-    }
-
-    /// Clone the data within the message and consume the lifetime of the
-    /// message. Don't use this unless you know what the type beforehand is.
-    pub fn consume<T: Any + Clone + Send + Sync>(self) -> Option<T> {
-        match self.0.downcast_ref::<T>() {
-            Some(value) => Some(value.clone()),
-            None => None,
+impl MessageQueue {
+    /// Create
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            handles: Arc::new(Mutex::new(HashMap::new())),
+            capacity,
         }
     }
 
-    /// Get immutable reference to data.
-    pub fn get<T: Any + Clone + Send + Sync>(&self) -> Option<&T> {
-        self.0.downcast_ref::<T>()
-    }
+    pub async fn acquire_handle<T: Any + Send + Sync + Clone + 'static>(
+        &self,
+    ) -> (
+        tokio::sync::broadcast::Sender<T>,
+        tokio::sync::broadcast::Receiver<T>,
+    ) {
+        let mut map = self.handles.lock().await;
+        if let Some(handle) = map.get(&TypeId::of::<T>()) {
+            // Unwrapping this is fine because it theoretically should never
+            // panic.
+            let (sender, _) = handle
+                .downcast_ref::<(
+                    tokio::sync::broadcast::Sender<T>,
+                    tokio::sync::broadcast::Receiver<T>,
+                )>()
+                .unwrap();
+            let handle_sender = sender.clone();
+            let handle_receiver = sender.subscribe();
 
-    /// A convenience function for getting the type id of a message,
-    pub fn id(&self) -> TypeId {
-        self.1
+            (handle_sender, handle_receiver)
+        } else {
+            let (sender, receiver) = channel::<T>(self.capacity);
+            let handle_sender = sender.clone();
+            let handle_receiver = sender.subscribe();
+            map.insert(TypeId::of::<T>(), Box::new((sender, receiver)));
+
+            (handle_sender, handle_receiver)
+        }
     }
 }

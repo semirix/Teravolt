@@ -17,15 +17,15 @@ enabling seamless communication between them.
 - [x] Multiple tasks communicating with each other.
 - [x] Custom task restart policies.
 - [x] Handling of errors in tasks cleanly.
-- [ ] Subscribe to messages.
+- [x] Subscribe to messages.
+- [x] Support mutable internal state for connections.
 - [ ] Distribute task workloads over multiple threads.
 - [ ] Procedural macros to create new tasks.
-- [ ] Support mutable internal state for connections.
 - [ ] Connection dependencies
 
 ## License
 ```
-Copyright 2020 Semirix
+Copyright 2021 Semirix
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this software except in compliance with the License.

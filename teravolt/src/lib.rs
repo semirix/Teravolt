@@ -2,9 +2,8 @@
 //! and enabling seamless communication between them.
 //!
 //! ## Getting started
-//! There are three main components to getting Teravolt up and running:
+//! There are two main components to getting Teravolt up and running:
 //! - [`Connection`][executor::Connection]
-//! - [`Message`][message]
 //! - [`Executor`][executor]
 //!
 //! ## Creating a Connection
@@ -15,12 +14,12 @@
 //! struct SendMessage;
 //! ```
 //!
-//! It is very important that our struct is cloneable. Next we need to implement
-//! the actual [`Connection`]. When implementing a connection we need to create
-//! a global error type that will be used across all connections running in the
-//! executor. This can reasonably be anything but for now, `()` will be adequate
-//! for demonstration. An implementation for a [`Connection`] will look like
-//! this:
+//! It is very important that our struct is cloneable. Next
+//! we need to implement the actual [`Connection`]. When implementing a
+//! connection we need to create a global error type that will be used across
+//! all connections running in the executor. This can reasonably be anything but
+//! for now, `()` will be adequate for demonstration. An implementation for a
+//! [`Connection`] will look like this:
 //!
 //! ```rust
 //! #[teravolt::async_trait]
@@ -31,31 +30,23 @@
 //!     fn policy(&self, _: TaskResult<Error>) -> RestartPolicy {
 //!         // ...
 //!     }
-//!     async fn task(&self, sender: &Sender, _: &mut Receiver) -> TaskResult<Error> {
+//!     async fn task(&self, queue: &MessageQueue, storage: Storage) -> TaskResult<Error> {
 //!         // ...
 //!     }
 //! }
 //! ```
 //!
 //! ### Config
-//! This is how we determine the behaviour of the connection. For instance, a
-//! config will look this:
+//! This is how we determine the name of the connection. A name must be unique.
+//! For instance, a config will look this:
 //!
 //! ```rust
 //! fn config(&self) -> ConnectionConfig {
 //!     ConnectionConfig {
-//!         name: "SendMessage",
-//!         behaviour: ConnectionBehaviour::Producer,
+//!         name: "SendMessage"
 //!     }
 //! }
 //! ```
-//!
-//! Here we define the name of the connection and it's behaviour. The name of
-//! the connection must be unique inside the executor. The behaviour determines
-//! how the connection will deal with receiving and sending messages. There is a
-//! Producer, Consumer, and Transformer behaviour type. To learn more about what
-//! these do, read the [`ConnectionBehaviour`][config::ConnectionBehaviour]
-//! documentation.
 //!
 //! ### Restart Policy
 //! The restart policy will determine what happens when the task either
@@ -95,18 +86,6 @@
 //! messages from other connections. The ability to read and write is determined
 //! by the connection's [`ConnectionBehaviour`][config::ConnectionBehaviour].
 //!
-//! ## Messages
-//! In Teravolt, a [`Message`] is a universal type for sending data between
-//! connections. To allow your types to be sent as a message, do the following:
-//!
-//! ```rust
-//! #[derive(Clone, TeravoltMessage)]
-//! struct MyType;
-//! ```
-//!
-//! Make sure that your type implements [`Clone`], otherwise you will get an
-//! error.
-//!
 //! ## Executor
 //! The executor is the main manager for all of the connections you'll be
 //! running. Setting up the executor is quite simple, first you need to create
@@ -129,23 +108,27 @@
 //!     teravolt.add_connection(MyConnection);
 //!     teravolt.start().await;
 //! ```
+#[macro_use]
+extern crate log;
+
 pub mod config;
 pub mod error;
 pub mod executor;
 pub mod message;
+pub mod storage;
 pub mod types;
 
 pub mod prelude {
     pub use crate::config::*;
     pub use crate::error::TeravoltError;
     pub use crate::executor::{Connection, Executor, RestartPolicy};
-    pub use crate::message::{Message, TeravoltMessage};
+    pub use crate::message::MessageQueue;
+    pub use crate::storage::Storage;
     pub use crate::types::*;
 }
 
 pub use crate::executor::Connection;
 pub use crate::executor::Executor;
-pub use crate::message::Message;
 
 /// A `Result` type with a `TeravoltError` as the `Err` type.
 pub type Result<T> = std::result::Result<T, error::TeravoltError>;

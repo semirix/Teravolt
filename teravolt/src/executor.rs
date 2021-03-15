@@ -1,4 +1,6 @@
 use crate::config::*;
+use crate::message::MessageQueue;
+use crate::storage::Storage;
 use crate::types::*;
 use crate::Result;
 use async_trait::async_trait;
@@ -29,7 +31,7 @@ where
     /// A restart policy based upon the result of the task.
     fn policy(&self, result: TaskResult<E>) -> RestartPolicy;
     /// An asynchronous task for the  connection to run.
-    async fn task(&self, sender: &Sender, receiver: &mut Receiver) -> TaskResult<E>;
+    async fn task(&self, queue: MessageQueue, storage: Storage) -> TaskResult<E>;
 }
 
 pub trait ErrorTrait: Send + Sync + 'static {}
@@ -72,11 +74,10 @@ where
     E: ErrorTrait,
 {
     runtime: &'a Runtime,
-    primary_sender: Sender,
-    primary_receiver: Receiver,
     connections: AsyncMap<&'static str, ConnectionContainer<E>>,
     tasks: AsyncMap<&'static str, JoinHandle<()>>,
-    senders: AsyncMap<&'static str, Sender>,
+    queue: MessageQueue,
+    storage: Storage,
 }
 
 impl<'a, E> Executor<'a, E>
@@ -84,16 +85,13 @@ where
     E: ErrorTrait,
 {
     /// Create a new instance of the Teravolt executor.
-    pub fn new(runtime: &'a Runtime) -> Result<Self> {
-        let (primary_sender, primary_receiver) = tokio::sync::mpsc::unbounded_channel();
-
+    pub fn new(runtime: &'a Runtime, capacity: usize) -> Result<Self> {
         Ok(Self {
             runtime,
-            primary_sender,
-            primary_receiver,
             connections: async_map(),
             tasks: async_map(),
-            senders: async_map(),
+            queue: MessageQueue::new(capacity),
+            storage: Storage::new(),
         })
     }
 
@@ -118,14 +116,15 @@ where
             // clone it so the thread can take ownership.
             let connection = data.duplicate();
             let config = connection.get_raw().config();
-            // Spawn the task
-            let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
-            let bus = self.primary_sender.clone();
+            let handle_queue = self.queue.clone();
+            let handle_storage = self.storage.clone();
 
             let thread = handle.spawn(async move {
                 let connection = connection.get_raw();
                 loop {
-                    let result = connection.task(&bus, &mut receiver).await;
+                    let result = connection
+                        .task(handle_queue.clone(), handle_storage.clone())
+                        .await;
 
                     match connection.policy(result) {
                         RestartPolicy::Shutdown => break,
@@ -135,22 +134,11 @@ where
             });
 
             self.tasks.write().await.insert(config.name, thread);
-
-            match config.behaviour {
-                ConnectionBehaviour::Consumer | ConnectionBehaviour::Transformer => {
-                    self.senders.write().await.insert(config.name, sender);
-                }
-                _ => (),
-            }
         }
 
-        while let Some(message) = self.primary_receiver.recv().await {
-            for (_, sender) in self.senders.read().await.iter() {
-                match sender.send(message.clone()) {
-                    // TODO: Handle this better
-                    Err(error) => println!("Error: {error}", error = error),
-                    _ => (),
-                }
+        for (_, task) in self.tasks.write().await.iter_mut() {
+            if let Err(error) = task.await {
+                error!("Teravolt :: Error Joining Task: {}", error);
             }
         }
     }
