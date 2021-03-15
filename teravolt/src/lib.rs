@@ -70,7 +70,8 @@
 //! like this:
 //!
 //! ```rust
-//! async fn task(&self, sender: &Sender, _: &mut Receiver) -> TaskResult<()> {
+//! async fn task(&self, queue: &MessageQueue, storage: Storage) -> TaskResult<()> {
+//!     let (sender, _) = queue.acquire_handle::<Type>().await;
 //!     let mut interval = time::interval(Duration::from_millis(1000));
 //!     loop {
 //!         interval.tick().await;
@@ -101,10 +102,11 @@
 //! ```
 //!
 //! Then once you've made the runtime you can create an instance of the
-//! executor, add your connections, and then start it!
+//! executor, add your connections, set the maximum message capacity, and you're
+//! good to go!
 //!
 //! ```rust
-//! let mut teravolt = Executor::new(&runtime).unwrap();
+//! let mut teravolt = Executor::new(&runtime, 32).unwrap();
 //!     teravolt.add_connection(MyConnection);
 //!     teravolt.start().await;
 //! ```
