@@ -15,13 +15,10 @@ impl Connection<()> for SendType {
     }
     async fn task(&self, _: MessageQueue, storage: Storage) -> TaskResult<()> {
         let mut interval = time::interval(Duration::from_millis(500));
+        let data = storage.handle::<u16>().await;
         loop {
             interval.tick().await;
-            storage
-                .write::<u16>(|data| {
-                    *data += 1;
-                })
-                .await;
+            *data.write().await += 1;
         }
     }
 }
@@ -41,13 +38,10 @@ impl Connection<()> for ReceiveType {
     }
     async fn task(&self, _: MessageQueue, storage: Storage) -> TaskResult<()> {
         let mut interval = time::interval(Duration::from_millis(1000));
+        let data = storage.handle::<u16>().await;
         loop {
             interval.tick().await;
-            storage
-                .read::<u16>(|data| {
-                    println!("Count: {}", data);
-                })
-                .await;
+            println!("Count: {}", data.read().await);
         }
     }
 }

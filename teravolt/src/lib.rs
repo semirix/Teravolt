@@ -95,7 +95,7 @@
 //! ```rust
 //! let runtime = Builder::new_multi_thread()
 //!     .thread_name("teravolt-worker")
-//!     .thread_stack_size(3 * 1024 * 1024)
+//!     .thread_stack_size(4 * 1024 * 1024)
 //!     .enable_time()
 //!     .build()
 //!     .unwrap();

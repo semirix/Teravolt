@@ -1,40 +1,62 @@
 use crate::types::*;
 use std::any::{Any, TypeId};
+use std::marker::PhantomData;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard};
 
 pub trait ResourceTrait: Any + Send + Sync + Sized + Default {}
 impl<T> ResourceTrait for T where T: Any + Send + Sync + Sized + Default {}
 
 /// A universal resource type for transmitting data inside Teravolt.
 #[derive(Debug, Clone)]
-pub struct Resource(Arc<RwLock<Box<dyn Any + Send + Sync>>>, TypeId);
+struct InternalResource(Arc<RwLock<Box<dyn Any + Send + Sync>>>, TypeId);
 
-impl Resource {
+impl InternalResource {
     /// Creates a new Resource.
     fn new<T: Any + Send + Sync>(data: T) -> Self {
         Self(Arc::new(RwLock::new(Box::new(data))), TypeId::of::<T>())
     }
 
-    /// Immutably read resource from closure.
-    async fn read<T: Any + Send + Sync>(&self, closure: fn(&T)) {
-        if let Some(data) = self.0.read().await.downcast_ref::<T>() {
-            closure(data);
-        }
+    /// Immutably read resource. This will panic if you don't use the correct
+    /// type.
+    fn as_typed<T: Any + Send + Sync>(&self) -> Resource<T> {
+        Resource(self.0.clone(), self.1, PhantomData::<T>)
+    }
+}
+
+/// A universal resource type for transmitting data inside Teravolt.
+#[derive(Debug, Clone)]
+pub struct Resource<T>(
+    Arc<RwLock<Box<dyn Any + Send + Sync>>>,
+    TypeId,
+    PhantomData<T>,
+);
+
+impl<T> Resource<T>
+where
+    T: Any + Send + Sync,
+{
+    /// Immutably read resource.
+    pub async fn read(&self) -> RwLockReadGuard<'_, T> {
+        RwLockReadGuard::map(self.0.read().await, |data| {
+            // Theoretically, this should never panic
+            data.downcast_ref::<T>().unwrap()
+        })
     }
 
-    /// Mutably read resource from closure.
-    async fn write<T: Any + Send + Sync>(&self, closure: fn(&mut T)) {
-        if let Some(data) = self.0.write().await.downcast_mut::<T>() {
-            closure(data);
-        }
+    /// Mutably read resource.
+    pub async fn write(&self) -> RwLockMappedWriteGuard<'_, T> {
+        RwLockWriteGuard::map(self.0.write().await, |data| {
+            // Theoretically, this should never panic
+            data.downcast_mut::<T>().unwrap()
+        })
     }
 }
 
 /// A global storage container that is passed down to connection tasks.
 #[derive(Debug, Clone)]
 pub struct Storage {
-    map: Arc<AsyncMap<TypeId, Resource>>,
+    map: Arc<AsyncMap<TypeId, InternalResource>>,
 }
 
 impl Storage {
@@ -45,49 +67,30 @@ impl Storage {
         }
     }
 
-    /// Immutably read resource in storage from closure.
-    pub async fn read<T: ResourceTrait>(&self, closure: fn(&T)) {
-        if !{
-            if let Some(resource) = self.map.read().await.get(&TypeId::of::<T>()) {
-                resource.read(closure).await;
-                true
-            } else {
-                false
-            }
-        } {
-            let resource = Resource::new(T::default());
-            self.map
-                .write()
-                .await
-                .insert(TypeId::of::<T>(), resource.clone());
-            resource.read(closure).await;
-        }
-    }
-
-    /// Mutably read resource in storage from closure.
-    pub async fn write<T: ResourceTrait>(&self, closure: fn(&mut T)) {
-        let mut data = self.map.write().await;
-
-        if let Some(resource) = data.get(&TypeId::of::<T>()) {
-            resource.write(closure).await;
-        } else {
-            let resource = Resource::new(T::default());
-            data.insert(TypeId::of::<T>(), resource.clone());
-            resource.write(closure).await;
-        }
-    }
-
     /// Get a handle on a Resource within storage.
-    pub async fn handle<T: ResourceTrait>(&self) -> Resource {
-        if let Some(resource) = self.map.read().await.get(&TypeId::of::<T>()) {
-            resource.clone()
+    pub async fn handle<T: ResourceTrait>(&self) -> Resource<T> {
+        let exists = if let Some(_) = self.map.read().await.get(&TypeId::of::<T>()) {
+            true
         } else {
-            let resource = Resource::new(T::default());
+            false
+        };
+
+        if exists {
             self.map
-                .write()
+                .read()
                 .await
-                .insert(TypeId::of::<T>(), resource.clone());
-            resource
+                .get(&TypeId::of::<T>())
+                .unwrap()
+                .as_typed()
+        } else {
+            let resource = InternalResource::new(T::default());
+            {
+                self.map
+                    .write()
+                    .await
+                    .insert(TypeId::of::<T>(), resource.clone());
+            }
+            resource.as_typed()
         }
     }
 }
