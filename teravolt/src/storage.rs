@@ -13,13 +13,13 @@ struct InternalResource(Arc<RwLock<Box<dyn Any + Send + Sync>>>, TypeId);
 
 impl InternalResource {
     /// Creates a new Resource.
-    fn new<T: Any + Send + Sync>(data: T) -> Self {
+    fn new<T: ResourceTrait>(data: T) -> Self {
         Self(Arc::new(RwLock::new(Box::new(data))), TypeId::of::<T>())
     }
 
     /// Immutably read resource. This will panic if you don't use the correct
     /// type.
-    fn as_typed<T: Any + Send + Sync>(&self) -> Resource<T> {
+    fn as_typed<T: ResourceTrait>(&self) -> Resource<T> {
         Resource(self.0.clone(), self.1, PhantomData::<T>)
     }
 }
@@ -34,9 +34,9 @@ pub struct Resource<T>(
 
 impl<T> Resource<T>
 where
-    T: Any + Send + Sync,
+    T: ResourceTrait,
 {
-    /// Immutably read resource.
+    /// Get an immutable reference to the resource.
     pub async fn read(&self) -> RwLockReadGuard<'_, T> {
         RwLockReadGuard::map(self.0.read().await, |data| {
             // Theoretically, this should never panic
@@ -44,7 +44,7 @@ where
         })
     }
 
-    /// Mutably read resource.
+    /// Get a mutable reference to the resource.
     pub async fn write(&self) -> RwLockMappedWriteGuard<'_, T> {
         RwLockWriteGuard::map(self.0.write().await, |data| {
             // Theoretically, this should never panic
@@ -91,6 +91,14 @@ impl Storage {
                     .insert(TypeId::of::<T>(), resource.clone());
             }
             resource.as_typed()
+        }
+    }
+
+    /// Clear out a resource from storage.
+    pub async fn clear<T: ResourceTrait>(&self) {
+        if let Some(resource) = self.map.write().await.get(&TypeId::of::<T>()) {
+            let data = resource.as_typed();
+            *data.write().await = T::default();
         }
     }
 }

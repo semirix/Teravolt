@@ -12,7 +12,7 @@ pub struct MessageQueue {
 }
 
 impl MessageQueue {
-    /// Create
+    /// Create a new message queue.
     pub fn new(capacity: usize) -> Self {
         Self {
             handles: Arc::new(Mutex::new(HashMap::new())),
@@ -20,7 +20,8 @@ impl MessageQueue {
         }
     }
 
-    pub async fn acquire_handle<T: Any + Send + Sync + Clone + 'static>(
+    /// Acquire a handle to one of the channels in the message queue system.
+    pub async fn handle<T: Any + Send + Sync + Clone + 'static>(
         &self,
     ) -> (
         tokio::sync::broadcast::Sender<T>,

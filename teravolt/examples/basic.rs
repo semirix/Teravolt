@@ -9,15 +9,12 @@ struct Type;
 struct SendType;
 
 #[teravolt::async_trait]
-impl Connection<()> for SendType {
-    fn config(&self) -> ConnectionConfig {
-        ConnectionConfig { name: "SendType" }
-    }
+impl Connection<(), ()> for SendType {
     fn policy(&self, _: TaskResult<()>) -> RestartPolicy {
         RestartPolicy::Restart
     }
-    async fn task(&self, queue: MessageQueue, _: Storage) -> TaskResult<()> {
-        let (sender, _) = queue.acquire_handle::<Type>().await;
+    async fn task(&self, _: Config<()>, queue: MessageQueue, _: Storage) -> TaskResult<()> {
+        let (sender, _) = queue.handle::<Type>().await;
         let mut interval = time::interval(Duration::from_millis(1000));
         loop {
             interval.tick().await;
@@ -33,17 +30,12 @@ impl Connection<()> for SendType {
 struct ReceiveType;
 
 #[teravolt::async_trait]
-impl Connection<()> for ReceiveType {
-    fn config(&self) -> ConnectionConfig {
-        ConnectionConfig {
-            name: "ReceiveType",
-        }
-    }
-    fn policy(&self, _: TaskResult<()>) -> RestartPolicy {
+impl Connection<(), ()> for ReceiveType {
+    fn policy(&self, __: TaskResult<()>) -> RestartPolicy {
         RestartPolicy::Restart
     }
-    async fn task(&self, queue: MessageQueue, _: Storage) -> TaskResult<()> {
-        let (_, mut receiver) = queue.acquire_handle::<Type>().await;
+    async fn task(&self, _: Config<()>, queue: MessageQueue, _: Storage) -> TaskResult<()> {
+        let (_, mut receiver) = queue.handle::<Type>().await;
         while let Ok(message) = receiver.recv().await {
             println!("Received a {:?} object", message);
         }
@@ -60,7 +52,7 @@ async fn main() {
         .build()
         .unwrap();
 
-    let mut teravolt = Executor::new(&runtime, 32).unwrap();
+    let mut teravolt = Executor::new(&runtime, (), 32).unwrap();
     teravolt.add_connection(SendType).await;
     teravolt.add_connection(ReceiveType).await;
     teravolt.start().await;

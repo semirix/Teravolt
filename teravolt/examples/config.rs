@@ -2,20 +2,29 @@ use teravolt::prelude::*;
 use tokio::runtime::Builder;
 use tokio::time::{self, Duration};
 
+#[derive(Debug, Clone)]
+struct Type;
+
 #[derive(Clone)]
 struct SendType;
 
 #[teravolt::async_trait]
-impl Connection<(), ()> for SendType {
+impl Connection<(), String> for SendType {
     fn policy(&self, _: TaskResult<()>) -> RestartPolicy {
         RestartPolicy::Restart
     }
-    async fn task(&self, _: Config<()>, _: MessageQueue, storage: Storage) -> TaskResult<()> {
-        let mut interval = time::interval(Duration::from_millis(500));
-        let data = storage.handle::<u16>().await;
+    async fn task(
+        &self,
+        mut config: Config<String>,
+        _: MessageQueue,
+        _: Storage,
+    ) -> TaskResult<()> {
+        let mut counter = 0;
+        let mut interval = time::interval(Duration::from_millis(1000));
         loop {
             interval.tick().await;
-            *data.write().await += 1;
+            counter += 1;
+            config.set(format!("I am a: {}", counter)).await.unwrap();
         }
     }
 }
@@ -24,16 +33,15 @@ impl Connection<(), ()> for SendType {
 struct ReceiveType;
 
 #[teravolt::async_trait]
-impl Connection<(), ()> for ReceiveType {
+impl Connection<(), String> for ReceiveType {
     fn policy(&self, _: TaskResult<()>) -> RestartPolicy {
         RestartPolicy::Restart
     }
-    async fn task(&self, _: Config<()>, _: MessageQueue, storage: Storage) -> TaskResult<()> {
+    async fn task(&self, config: Config<String>, _: MessageQueue, _: Storage) -> TaskResult<()> {
         let mut interval = time::interval(Duration::from_millis(1000));
-        let data = storage.handle::<u16>().await;
         loop {
             interval.tick().await;
-            println!("Count: {}", data.read().await);
+            println!("{}", config.get().await);
         }
     }
 }
@@ -47,7 +55,7 @@ async fn main() {
         .build()
         .unwrap();
 
-    let mut teravolt = Executor::new(&runtime, (), 0).unwrap();
+    let mut teravolt = Executor::new(&runtime, "I am first.".into(), 32).unwrap();
     teravolt.add_connection(SendType).await;
     teravolt.add_connection(ReceiveType).await;
     teravolt.start().await;
