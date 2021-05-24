@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast::*;
 use tokio::sync::Mutex;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 /// A message queue structure
 pub struct MessageQueue {
     handles: Arc<Mutex<HashMap<TypeId, Box<dyn Any + Send + Sync + 'static>>>>,
@@ -13,6 +13,7 @@ pub struct MessageQueue {
 
 impl MessageQueue {
     /// Create a new message queue.
+    #[tracing::instrument]
     pub fn new(capacity: usize) -> Self {
         Self {
             handles: Arc::new(Mutex::new(HashMap::new())),
@@ -21,6 +22,7 @@ impl MessageQueue {
     }
 
     /// Acquire a handle to one of the channels in the message queue system.
+    #[tracing::instrument]
     pub async fn handle<T: Any + Send + Sync + Clone + 'static>(
         &self,
     ) -> (

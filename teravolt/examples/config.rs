@@ -5,7 +5,7 @@ use tokio::time::{self, Duration};
 #[derive(Debug, Clone)]
 struct Type;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct SendType;
 
 #[teravolt::async_trait]
@@ -29,7 +29,7 @@ impl Connection<(), String> for SendType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct ReceiveType;
 
 #[teravolt::async_trait]
