@@ -1,8 +1,9 @@
-use hashbrown::HashMap;
+use crate::{error::ErrorMessage, prelude::TeravoltError, Result};
 use std::any::{Any, TypeId};
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::Mutex;
 use tokio::sync::broadcast::*;
-use tokio::sync::Mutex;
 
 #[derive(Debug, Clone)]
 /// A message queue structure
@@ -23,33 +24,40 @@ impl MessageQueue {
 
     /// Acquire a handle to one of the channels in the message queue system.
     #[tracing::instrument]
-    pub async fn handle<T: Any + Send + Sync + Clone + 'static>(
+    pub fn handle<T: Any + Send + Sync + Clone + 'static>(
         &self,
-    ) -> (
+    ) -> Result<(
         tokio::sync::broadcast::Sender<T>,
         tokio::sync::broadcast::Receiver<T>,
-    ) {
-        let mut map = self.handles.lock().await;
-        if let Some(handle) = map.get(&TypeId::of::<T>()) {
-            // Unwrapping this is fine because it theoretically should never
-            // panic.
-            let (sender, _) = handle
-                .downcast_ref::<(
-                    tokio::sync::broadcast::Sender<T>,
-                    tokio::sync::broadcast::Receiver<T>,
-                )>()
-                .unwrap();
-            let handle_sender = sender.clone();
-            let handle_receiver = sender.subscribe();
+    )> {
+        match self.handles.lock() {
+            Ok(mut map) => {
+                if let Some(handle) = map.get(&TypeId::of::<T>()) {
+                    // Unwrapping this is fine because it theoretically should never
+                    // panic.
+                    let (sender, _) = handle
+                        .downcast_ref::<(
+                            tokio::sync::broadcast::Sender<T>,
+                            tokio::sync::broadcast::Receiver<T>,
+                        )>()
+                        .unwrap();
+                    let handle_sender = sender.clone();
+                    let handle_receiver = sender.subscribe();
 
-            (handle_sender, handle_receiver)
-        } else {
-            let (sender, receiver) = channel::<T>(self.capacity);
-            let handle_sender = sender.clone();
-            let handle_receiver = sender.subscribe();
-            map.insert(TypeId::of::<T>(), Box::new((sender, receiver)));
+                    Ok((handle_sender, handle_receiver))
+                } else {
+                    let (sender, receiver) = channel::<T>(self.capacity);
+                    let handle_sender = sender.clone();
+                    let handle_receiver = sender.subscribe();
+                    map.insert(TypeId::of::<T>(), Box::new((sender, receiver)));
 
-            (handle_sender, handle_receiver)
+                    Ok((handle_sender, handle_receiver))
+                }
+            }
+            Err(error) => Err(TeravoltError::GenericError(ErrorMessage(format!(
+                "Could not acquire message handle - `{}`",
+                error
+            )))),
         }
     }
 }

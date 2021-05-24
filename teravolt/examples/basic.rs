@@ -14,7 +14,7 @@ impl Connection<(), ()> for SendType {
         RestartPolicy::Restart
     }
     async fn task(&self, _: Config<()>, queue: MessageQueue, _: Storage) -> TaskResult<()> {
-        let (sender, _) = queue.handle::<Type>().await;
+        let (sender, _) = queue.handle::<Type>().unwrap();
         let mut interval = time::interval(Duration::from_millis(1000));
         loop {
             interval.tick().await;
@@ -35,7 +35,7 @@ impl Connection<(), ()> for ReceiveType {
         RestartPolicy::Restart
     }
     async fn task(&self, _: Config<()>, queue: MessageQueue, _: Storage) -> TaskResult<()> {
-        let (_, mut receiver) = queue.handle::<Type>().await;
+        let (_, mut receiver) = queue.handle::<Type>().unwrap();
         while let Ok(message) = receiver.recv().await {
             println!("Received a {:?} object", message);
         }
