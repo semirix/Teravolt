@@ -12,3 +12,7 @@ pub enum TeravoltError {
 #[derive(Error, Debug)]
 #[error("{0}")]
 pub struct ErrorMessage(pub String);
+
+pub(crate) fn error<T>(message: String) -> Result<T, TeravoltError> {
+    Err(TeravoltError::GenericError(ErrorMessage(message)))
+}

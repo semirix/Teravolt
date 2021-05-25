@@ -1,8 +1,11 @@
+use crate::error::error;
 use crate::types::*;
+use crate::Result;
 use std::any::{Any, TypeId};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::sync::{RwLock, RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard};
 
 pub trait ResourceTrait: Any + Send + Sync + Sized + Default {}
@@ -61,7 +64,7 @@ where
 /// A global storage container that is passed down to connection tasks.
 #[derive(Debug, Clone)]
 pub struct Storage {
-    map: Arc<AsyncMap<TypeId, InternalResource>>,
+    map: Arc<Mutex<HashMap<TypeId, InternalResource>>>,
 }
 
 impl Storage {
@@ -69,44 +72,40 @@ impl Storage {
     #[tracing::instrument]
     pub fn new() -> Self {
         Self {
-            map: Arc::new(async_map()),
+            map: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     /// Get a handle on a Resource within storage.
     #[tracing::instrument]
-    pub async fn handle<T: ResourceTrait + Debug>(&self) -> Resource<T> {
-        let exists = if let Some(_) = self.map.read().await.get(&TypeId::of::<T>()) {
+    pub fn handle<T: ResourceTrait + Debug>(&self) -> Result<Resource<T>> {
+        let mut map = self.map.lock().or(error("Could not acquire lock".into()))?;
+
+        let exists = if let Some(_) = map.get(&TypeId::of::<T>()) {
             true
         } else {
             false
         };
 
         if exists {
-            self.map
-                .read()
-                .await
-                .get(&TypeId::of::<T>())
-                .unwrap()
-                .as_typed()
+            Ok(map.get(&TypeId::of::<T>()).unwrap().as_typed())
         } else {
             let resource = InternalResource::new(T::default());
             {
-                self.map
-                    .write()
-                    .await
-                    .insert(TypeId::of::<T>(), resource.clone());
+                map.insert(TypeId::of::<T>(), resource.clone());
             }
-            resource.as_typed()
+            Ok(resource.as_typed())
         }
     }
 
     /// Clear out a resource from storage.
     #[tracing::instrument]
-    pub async fn clear<T: ResourceTrait + Debug>(&self) {
-        if let Some(resource) = self.map.write().await.get(&TypeId::of::<T>()) {
+    pub async fn clear<T: ResourceTrait + Debug>(&self) -> Result<()> {
+        let map = self.map.lock().or(error("Could not acquire lock".into()))?;
+        if let Some(resource) = map.get(&TypeId::of::<T>()) {
             let data = resource.as_typed();
             *data.write().await = T::default();
         }
+        Ok(())
     }
 }
