@@ -132,7 +132,6 @@ async fn connection_handle<E, C>(
     loop {
         let result = connection
             .task(config.clone(), queue.clone(), storage.clone())
-            .in_current_span()
             .await;
 
         match connection.policy(result) {

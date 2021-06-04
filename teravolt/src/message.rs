@@ -35,21 +35,18 @@ impl MessageQueue {
                 if let Some(handle) = map.get(&TypeId::of::<T>()) {
                     // Unwrapping this is fine because it theoretically should never
                     // panic.
-                    let (sender, _) = handle
-                        .downcast_ref::<(
-                            tokio::sync::broadcast::Sender<T>,
-                            tokio::sync::broadcast::Receiver<T>,
-                        )>()
+                    let sender = handle
+                        .downcast_ref::<tokio::sync::broadcast::Sender<T>>()
                         .unwrap();
                     let handle_sender = sender.clone();
                     let handle_receiver = sender.subscribe();
 
                     Ok((handle_sender, handle_receiver))
                 } else {
-                    let (sender, receiver) = channel::<T>(self.capacity);
+                    let (sender, _) = channel::<T>(self.capacity);
                     let handle_sender = sender.clone();
                     let handle_receiver = sender.subscribe();
-                    map.insert(TypeId::of::<T>(), Box::new((sender, receiver)));
+                    map.insert(TypeId::of::<T>(), Box::new(sender));
 
                     Ok((handle_sender, handle_receiver))
                 }
