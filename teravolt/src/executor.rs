@@ -9,7 +9,6 @@ use std::sync::Arc;
 use std::{any::TypeId, borrow::Borrow};
 use tokio::task::JoinHandle;
 use tokio::{runtime::Runtime, sync::RwLock};
-use tracing::Instrument;
 
 /// An enum returned by [`Connection::policy`] in response to a task error that
 /// determines if the task needs to shutdown.

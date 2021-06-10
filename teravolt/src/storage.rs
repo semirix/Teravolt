@@ -25,17 +25,13 @@ impl InternalResource {
     /// type.
     #[tracing::instrument]
     fn as_typed<T: ResourceTrait>(&self) -> Resource<T> {
-        Resource(self.0.clone(), self.1, PhantomData::<T>)
+        Resource(self.0.clone(), PhantomData::<T>)
     }
 }
 
 /// A universal resource type for transmitting data inside Teravolt.
 #[derive(Debug, Clone)]
-pub struct Resource<T>(
-    Arc<RwLock<Box<dyn Any + Send + Sync>>>,
-    TypeId,
-    PhantomData<T>,
-);
+pub struct Resource<T>(Arc<RwLock<Box<dyn Any + Send + Sync>>>, PhantomData<T>);
 
 impl<T> Resource<T>
 where
@@ -80,19 +76,11 @@ impl Storage {
     pub fn handle<T: ResourceTrait + Debug>(&self) -> Result<Resource<T>> {
         let mut map = self.map.lock().or(error("Could not acquire lock".into()))?;
 
-        let exists = if let Some(_) = map.get(&TypeId::of::<T>()) {
-            true
-        } else {
-            false
-        };
-
-        if exists {
-            Ok(map.get(&TypeId::of::<T>()).unwrap().as_typed())
+        if let Some(resource) = map.get(&TypeId::of::<T>()) {
+            Ok(resource.as_typed())
         } else {
             let resource = InternalResource::new(T::default());
-            {
-                map.insert(TypeId::of::<T>(), resource.clone());
-            }
+            map.insert(TypeId::of::<T>(), resource.clone());
             Ok(resource.as_typed())
         }
     }
